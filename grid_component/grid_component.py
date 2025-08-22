@@ -125,10 +125,6 @@ class GridComponent(AbstractSimulationComponent):
         TODO: add proper description specific for this component.
         """
                 
-        if not self._grid_state_sent:
-            await self._send_grid_state_message()
-            self._grid_state_sent = True
-
         if self._power_discharge_station_to_grid_received:
             new_grid_capacity = self._current_power_capacity + self._power_received
 
@@ -137,6 +133,10 @@ class GridComponent(AbstractSimulationComponent):
             
             elif new_grid_capacity < self._total_max_power_output:
                 self._current_power_capacity = new_grid_capacity
+        
+        if not self._grid_state_sent:
+            await self._send_grid_state_message()
+            self._grid_state_sent = True
 
         return self._grid_state_sent
 
