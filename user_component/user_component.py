@@ -159,7 +159,10 @@ class UserComponent(AbstractSimulationComponent):
            current epoch. This method is called automatically after receiving an epoch message for a new epoch.
            NOTE: this method should be overwritten in any child class that uses epoch specific variables
         """
-        self._user_state_sent = False
+        #### Removing user_state_sent from here. 
+        # It should be sent only once for each user as it contains fixed values like time
+        #self._user_state_sent = False
+
         self._car_state_sent = False
         self._power_output_received = False
         self._power_discharge_car_to_station_message_sent = False
