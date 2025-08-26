@@ -24,3 +24,4 @@ class UserData:
     required_energy: float = 0.0
     arrival_time: str = "2023-01-01T00:00:00.000Z"
     target_time: str = "2023-01-01T00:00:00.000Z"
+    discharge: bool = False
