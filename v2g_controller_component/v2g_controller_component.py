@@ -48,6 +48,7 @@ POWER_REQUIREMENT_TOPIC = "POWER_REQUIREMENT_TOPIC"
 
 TIMEOUT = 1.0
 DEFAULT_MIN_STATE_OF_CHARGE = 50.0
+MAX_STATE_OF_CHARGE = 100.0
 
 class V2GControllerComponent(AbstractSimulationComponent):
    
@@ -77,6 +78,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
         self._used_total_power = 0.0
         self._user_preferences = {}
         self._total_max_power_output_received = False
+        self._send_car_discharge_power_requirement = False
 
         environment = load_environmental_variables(
             (POWER_REQUIREMENT_TOPIC, str, "PowerRequirementTopic")
@@ -150,6 +152,13 @@ class V2GControllerComponent(AbstractSimulationComponent):
         ):
             await self._send_power_requirement_message()
             self._power_requirement_message_sent = True
+
+        if self._send_car_discharge_power_requirement and (
+            self._grid_state_received and self._car_metadata_received
+            and self._station_state_received and self._user_state_received
+        ):
+            await self._send_car_discharge_power_requirement_message()
+
 
         if self._epoch_car_state_count == self._total_user_count:
             self._car_state_received = True
@@ -244,16 +253,21 @@ class V2GControllerComponent(AbstractSimulationComponent):
                 if user.user_id == message_object.user_id:
                     user.state_of_charge = message_object.state_of_charge
                     
+                    if self._check_user_discharge_need(user):
+                        if user.state_of_charge > user.target_state_of_charge:
+                            user.required_energy = 0.0
+                            self._send_car_discharge_power_requirement = True
+
                     # If SoC == target SoC, check if user is willing to pay for more charging
-                    if user.state_of_charge == user.target_state_of_charge:
+                    elif user.state_of_charge == user.target_state_of_charge:
                         station = next((s for s in self._stations if s.station_id == user.station_id), None)
                         if station and user.user_id in self._user_preferences:
                             max_cost = self._user_preferences[user.user_id]["MaxCostForCharging"]
                             if max_cost >= station.charging_cost:
                                 # Allow further charging by increasing target SoC (e.g., up to 100%)
-                                if user.target_state_of_charge < 100.0:
+                                if user.target_state_of_charge < MAX_STATE_OF_CHARGE:
                                     LOGGER.info(f"User {user.user_id} is willing to pay for more charging at station {station.station_id}. Increasing target SoC.")
-                                    user.target_state_of_charge = min(100.0, user.target_state_of_charge + 10.0)  # or any logic you want
+                                    user.target_state_of_charge = MAX_STATE_OF_CHARGE # min(100.0, user.target_state_of_charge + 10.0)  # or any other logic
                                     user.required_energy = user.car_battery_capacity * (user.target_state_of_charge - user.state_of_charge) / 100
 
                     LOGGER.info(str(user))
@@ -395,6 +409,64 @@ class V2GControllerComponent(AbstractSimulationComponent):
                     "DischargePriceThreshold": float(row["DischargePriceThreshold"]),
                 }
 
+    def _is_grid_under_load(self) -> bool:
+        """Checks if the grid is under load."""
+        start_time = to_utc_datetime_object(self._latest_epoch_message.start_time)
+        hour_str = start_time.strftime("%H:00")
+
+        try:
+            with open("grid_load_daily.csv", newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    if row["time"] == hour_str:
+                        return row["grid_on_load"] == "1"
+        except Exception as e:
+            LOGGER.error(f"Error reading grid_load_daily.csv: {e}")
+
+        return False
+
+    def _check_user_discharge_need(self, user: UserData) -> bool:
+        """Checks if the car is needed for discharging based on user preferences and grid load."""
+        if user.user_id not in self._user_preferences:
+            LOGGER.warning(f"No preferences found for user {user.user_id}. Cannot discharge.")
+            return False
+
+        if self._is_grid_under_load():
+            LOGGER.info(f"Grid is under load")
+            station = next((s for s in self._stations if s.station_id == user.station_id), None)
+            if station:
+                discharge_price_threshold = self._user_preferences[user.user_id]["DischargePriceThreshold"]
+                if discharge_price_threshold <= station.compensation_amount:
+                    user.discharge = True
+        
+        return user.discharge
+
+    async def _send_car_discharge_power_requirement_message(self, user: UserData) -> None:
+        """Sends a car discharge power requirement message."""
+        if user.discharge:
+            power_requirement = self._calculate_power_requirement(user)
+            self._send_power_requirement_message(user, power_requirement)
+
+
+        LOGGER.info("Car discharge power requirement message initiated")
+        
+        if self._latest_epoch_message is None:
+            await self.send_error_message("Tried to send discharge power message before any epoch messages had arrived")
+            return
+        start_time = to_utc_datetime_object(self._latest_epoch_message.start_time)
+        end_time = to_utc_datetime_object(self._latest_epoch_message.end_time)
+        
+        discharge_users: List[UserData] = []
+
+        for user in self._users:
+            arrival_time = to_utc_datetime_object(user.arrival_time)
+            target_time = to_utc_datetime_object(user.target_time)
+            discharge_users = [user for user in self._users if user.discharge and start_time >= arrival_time and end_time <= target_time]
+
+        discharge_users = sorted(discharge_users, key=lambda user: (user.target_time, -user.arrival_time))
+        LOGGER.info(f"Discharge_users: {discharge_users}")
+
+        # TODO: Complete method
 
 def create_component() -> V2GControllerComponent:
     LOGGER.info("create V2G Controller component")
