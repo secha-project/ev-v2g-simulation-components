@@ -1,0 +1,76 @@
+Simulation:
+    Name: "Secha Project V2G charging demo"
+    Description: "Secha Project V2G charging demo 1.0"
+    InitialStartTime: "2025-08-11T12:00:00.000Z"
+    EpochLength: 3600
+    MaxEpochCount: 12
+
+Components:
+    V2GControllerComponent:
+        v2gcontroller1:
+
+    GridComponent:
+        gc1:
+            GridId: "1"
+            MaxPower: 100.0
+
+    UserComponent:
+        uc1:
+            UserId: 1
+            UserName: "testUser1"
+            StationId: "1"
+            StateOfCharge: 20.0
+            CarBatteryCapacity: 120.0
+            CarModel: "testModel1"
+            CarMaxPower: 22.0
+            TargetTime: "2025-08-11T14:00:00.000Z"
+            ArrivalTime: "2025-08-11T12:00:00.000Z"
+        uc2:
+            UserId: 2
+            UserName: "testUser2"
+            StationId: "2"
+            StateOfCharge: 5.0
+            CarBatteryCapacity: 90.0
+            CarModel: "testModel2"
+            CarMaxPower: 12.0
+            TargetTime: "2025-08-12T00:00:00.000Z"
+            ArrivalTime: "2025-08-11T12:00:00.000Z"
+        uc3:
+            UserId: 3
+            UserName: "testUser3"
+            StationId: "3"
+            StateOfCharge: 15.0
+            CarBatteryCapacity: 100.0
+            CarModel: "testModel2"
+            CarMaxPower: 25.0
+            TargetTime: "2025-08-11T22:00:00.000Z"
+            ArrivalTime: "2025-08-11T17:00:00.000Z"
+        uc4:
+            UserId: 4
+            UserName: "testUser4"
+            StationId: "3"
+            StateOfCharge: 15.0
+            CarBatteryCapacity: 100.0
+            CarModel: "testModel2"
+            CarMaxPower: 25.0
+            TargetTime: "2025-08-11T16:00:00.000Z"
+            ArrivalTime: "2025-08-11T12:00:00.000Z"
+
+
+
+    StationComponent:
+        s1:
+            StationId: "1"
+            MaxPower: 20.0
+            ChargingCost: 0.5
+            CompensationAmount: 0.3
+        s2:
+            StationId: "2"
+            MaxPower: 15.0
+            ChargingCost: 0.4
+            CompensationAmount: 0.4
+        s3:
+            StationId: "3"
+            MaxPower: 10.0
+            ChargingCost: 0.4
+            CompensationAmount: 0.5
