@@ -1,0 +1,36 @@
+# Copyright 2025 Tampere University
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Hamza Rizvi <hamza.rizvi@tuni.fi>
+
+Name: UserComponent
+Type: platform
+Description: "User component for the Decoupled Simulation Platform"
+DockerImage: # update
+Attributes:
+    UserId:
+        Environment: USER_ID
+        Optional: false
+    UserName:
+        Environment: USER_NAME
+        Optional: false
+    StationId:
+        Environment: STATION_ID
+        Optional: false
+    StateOfCharge:
+        Environment: STATE_OF_CHARGE
+        Optional: false
+    CarBatteryCapacity:
+        Environment: CAR_BATTERY_CAPACITY
+        Optional: false
+    CarModel:
+        Environment: CAR_MODEL
+        Optional: false
+    CarMaxPower:
+        Environment: CAR_MAX_POWER
+        Optional: false
+    TargetTime:
+        Environment: TARGET_TIME
+        Optional: false
+    ArrivalTime:
+        Environment: ARRIVAL_TIME
+        Optional: false

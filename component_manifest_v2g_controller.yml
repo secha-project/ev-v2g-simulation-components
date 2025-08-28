@@ -1,0 +1,10 @@
+# Copyright 2025 Tampere University
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Hamza Rizvi <hamza.rizvi@tuni.fi>
+
+# The component manifest file for the V2G Controller component
+
+Name: V2GControllerComponent
+Type: platform
+Description: "V2G Controller Component"
+DockerImage: # update

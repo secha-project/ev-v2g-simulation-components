@@ -1,0 +1,19 @@
+# Copyright 2025 Tampere University
+# This source code is licensed under the MIT license. See LICENSE in the repository root directory.
+# Author(s): Hamza Rizvi <hamza.rizvi@tuni.fi>
+
+# The component manifest file for the Grid component
+
+Name: GridComponent
+Type: platform
+Description: "Grid Component v1.0.1"
+DockerImage: # update
+    GridId:
+        Environment: GRID_ID
+        Optional: false
+    MaxPower:
+        Environment: MAX_POWER
+        Optional: false
+    CurrentPower:
+        Environment: CURRENT_POWER
+        Optional: false
