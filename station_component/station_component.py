@@ -5,6 +5,7 @@
 import asyncio
 from typing import Any, cast, Union
 
+from messages.car_discharge_power_requirement_message import CarDischargePowerRequirementMessage
 from tools.components import AbstractSimulationComponent
 from tools.exceptions.messages import MessageError
 from tools.messages import BaseMessage
@@ -50,6 +51,8 @@ class StationComponent(AbstractSimulationComponent):
         self._user_id: int = 0
         self._power_discharge_car_to_station_received: bool = False
         self._discharged_power: float = 0.0
+        self._power_discharge_needed: float = 0.0
+        self._power_discharge_requirement_received = False
 
 
         environment = load_environmental_variables(
@@ -74,6 +77,8 @@ class StationComponent(AbstractSimulationComponent):
         self._power_output = 0.0
         self._user_id = 0
         self._discharged_power = 0.0
+        self._power_discharge_needed: float = 0.0
+        self._power_discharge_requirement_received = False
 
     async def process_epoch(self) -> bool:
 
@@ -87,6 +92,10 @@ class StationComponent(AbstractSimulationComponent):
         
         if self._power_discharge_car_to_station_received:
             await self._send_power_discharge_station_to_grid_message()
+            return True
+        
+        if self._power_discharge_requirement_received:
+            await self._send_power_discharge_requirement_to_user()
             return True
 
         return False
@@ -114,8 +123,6 @@ class StationComponent(AbstractSimulationComponent):
             # When there is an exception while creating the message, it is in most cases a serious error.
             log_exception(message_error)
             await self.send_error_message("Internal error when creating result message.")
-
-
 
     async def _send_stationstate_message(self):
         """
@@ -166,6 +173,27 @@ class StationComponent(AbstractSimulationComponent):
             log_exception(message_error)
             await self.send_error_message("Internal error when creating result message.")
 
+    async def _send_power_discharge_requirement_to_user(self):
+        try:
+            power_discharge_message = self._message_generator.get_message(
+                CarDischargePowerRequirementMessage,
+                EpochNumber=self._latest_epoch,
+                TriggeringMessageIds=self._triggering_message_ids,
+                StationId=self._station_id,
+                UserId=self._user_id,
+                Power=self._power_discharge_needed
+            )
+
+            await self._rabbitmq_client.send_message(
+                topic_name=self._power_discharge_topic,
+                message_bytes=power_discharge_message.bytes()
+            )
+
+        except (ValueError, TypeError, MessageError) as message_error:
+            # When there is an exception while creating the message, it is in most cases a serious error.
+            log_exception(message_error)
+            await self.send_error_message("Internal error when creating result message.")
+
     async def all_messages_received_for_epoch(self) -> bool:
         return True
 
@@ -183,7 +211,19 @@ class StationComponent(AbstractSimulationComponent):
                 await self.start_epoch()
             else:
                 LOGGER.debug(f"Ignoring PowerRequirementMessage from {message_object.source_process_id}")
-        
+
+        elif isinstance(message_object, CarDischargePowerRequirementMessage):
+            message_object = cast(CarDischargePowerRequirementMessage, message_object)
+            LOGGER.info(str(message_object))
+            if message_object.station_id == self._station_id:
+                LOGGER.debug(f"Received CarDischargePowerRequirementMessage from {message_object.source_process_id}")
+                self._power_discharge_needed = float(message_object.power)
+                self._user_id = message_object.user_id
+                self._power_discharge_requirement_received = True
+                await self.start_epoch()
+            else:
+                LOGGER.debug(f"Ignoring PowerRequirementMessage from {message_object.source_process_id}")
+
         elif isinstance(message_object, PowerDischargeCarToStationMessage):
             message_object = cast(PowerDischargeCarToStationMessage, message_object)
             LOGGER.info(str(message_object))

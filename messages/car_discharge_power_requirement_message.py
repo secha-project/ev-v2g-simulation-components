@@ -10,7 +10,7 @@ from tools.messages import AbstractResultMessage
 
 
 class CarDischargePowerRequirementMessage(AbstractResultMessage):
-    """Description for the CarDischargePowerRequirementMessage class - V2G controller to Car"""
+    """Description for the CarDischargePowerRequirementMessage class - V2G controller to Station"""
 
     CLASS_MESSAGE_TYPE = "CarDischargePowerRequirement"
     MESSAGE_TYPE_CHECK = True
