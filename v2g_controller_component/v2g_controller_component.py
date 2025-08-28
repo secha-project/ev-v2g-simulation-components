@@ -118,6 +118,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
         self._car_state_received = False
         self._power_requirement_message_sent = False
         self._stations = []
+        self._send_car_discharge_power_requirement = False
 
     async def process_epoch(self) -> bool:
         """
@@ -153,11 +154,12 @@ class V2GControllerComponent(AbstractSimulationComponent):
             await self._send_power_requirement_message()
             self._power_requirement_message_sent = True
 
-        if self._send_car_discharge_power_requirement and (
+        if not self._send_car_discharge_power_requirement and (
             self._grid_state_received and self._car_metadata_received
             and self._station_state_received and self._user_state_received
         ):
             await self._send_car_discharge_power_requirement_message()
+            self._send_car_discharge_power_requirement = True
 
 
         if self._epoch_car_state_count == self._total_user_count:
@@ -256,7 +258,8 @@ class V2GControllerComponent(AbstractSimulationComponent):
                     if self._check_user_discharge_need(user):
                         if user.state_of_charge > user.target_state_of_charge:
                             user.required_energy = 0.0
-                            self._send_car_discharge_power_requirement = True
+                            user.target_state_of_charge = max(user.state_of_charge - 10.0, 
+                                                              self._user_preferences[user.user_id]["MinimumSOC"]* 100)
 
                     # If SoC == target SoC, check if user is willing to pay for more charging
                     elif user.state_of_charge == user.target_state_of_charge:
@@ -441,12 +444,8 @@ class V2GControllerComponent(AbstractSimulationComponent):
         
         return user.discharge
 
-    async def _send_car_discharge_power_requirement_message(self, user: UserData) -> None:
+    async def _send_car_discharge_power_requirement_message(self) -> None:
         """Sends a car discharge power requirement message."""
-        if user.discharge:
-            power_requirement = self._calculate_power_requirement(user)
-            self._send_power_requirement_message(user, power_requirement)
-
 
         LOGGER.info("Car discharge power requirement message initiated")
         
@@ -455,7 +454,8 @@ class V2GControllerComponent(AbstractSimulationComponent):
             return
         start_time = to_utc_datetime_object(self._latest_epoch_message.start_time)
         end_time = to_utc_datetime_object(self._latest_epoch_message.end_time)
-        
+        epoch_length = int((end_time - start_time).total_seconds())
+
         discharge_users: List[UserData] = []
 
         for user in self._users:
@@ -463,10 +463,69 @@ class V2GControllerComponent(AbstractSimulationComponent):
             target_time = to_utc_datetime_object(user.target_time)
             discharge_users = [user for user in self._users if user.discharge and start_time >= arrival_time and end_time <= target_time]
 
-        discharge_users = sorted(discharge_users, key=lambda user: (user.target_time, -user.arrival_time))
         LOGGER.info(f"Discharge_users: {discharge_users}")
 
         # TODO: Complete method
+
+        discharge_power_requirements = self._calculate_discharge_power_requirements(discharge_users, start_time)
+
+        for discharge_power_info in discharge_power_requirements:
+            powerRequirementForStation = float(0.0)
+            LOGGER.info(f"DISCHARGE POWER REQUIREMENT: {discharge_power_info}")
+
+            if discharge_power_info.user_id != 0:
+                if self._used_total_power < self._current_available_power:
+
+                    if discharge_power_info.required_energy == 0 and \
+                        (discharge_power_info.target_state_of_charge < discharge_power_info.state_of_charge):
+                        powerRequirementForStation = min(
+                            discharge_power_info.station_max_power,
+                            discharge_power_info.car_max_power,
+                            self._current_available_power - self._used_total_power,
+                            # discharge_power_info.required_energy / (epoch_length / 3600)
+                        )
+                        # self._used_total_power = self._used_total_power + powerRequirementForStation
+                    LOGGER.info(f"power to station '{discharge_power_info.station_id}': {powerRequirementForStation}")
+
+            await self._send_single_discharge_power_requirement_message(discharge_power_info, powerRequirementForStation)
+
+        LOGGER.info(f"Allocated {self._used_total_power} power (maximum: {self._current_available_power}) in epoch {self._latest_epoch}")
+    
+
+    def _calculate_discharge_power_requirements(self, discharge_users: List[UserData], start_time: datetime):
+        """Calculates and returns the discharge power requirements for each station."""
+        discharge_power_requirements: List[PowerInfo] = []
+        empty_power_requirements: List[PowerInfo] = []
+
+        for station in self._stations:
+            LOGGER.info(f"STATION LOGGER: {station}")
+            isConnected = False
+            for user in discharge_users:
+                if user.station_id == station.station_id:
+                    isConnected = True
+                    LOGGER.info(str(start_time))
+                    LOGGER.info(str(user.arrival_time))
+                    discharge_power_info = PowerInfo(
+                        user_id=user.user_id,
+                        station_id=user.station_id,
+                        station_max_power=station.max_power,
+                        car_max_power=user.car_max_power,
+                        state_of_charge=user.state_of_charge,
+                        target_state_of_charge=user.target_state_of_charge,
+                        required_energy=user.required_energy,
+                        target_time=user.target_time
+                    )
+                    discharge_power_requirements.append(discharge_power_info)
+            if not isConnected:
+                empty_power_requirements.append(PowerInfo(user_id=0, station_id=station.station_id))
+
+        discharge_power_requirements = sorted(discharge_power_requirements, key=lambda discharge_power_info: (discharge_power_info.target_time, -discharge_power_info.target_state_of_charge))
+        LOGGER.info(f"discharge power_requirements: {discharge_power_requirements}")
+
+        discharge_power_requirements = discharge_power_requirements + empty_power_requirements
+        LOGGER.info(f"discharge power_requirements: {discharge_power_requirements}")
+
+        return discharge_power_requirements
 
 def create_component() -> V2GControllerComponent:
     LOGGER.info("create V2G Controller component")
