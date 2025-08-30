@@ -1,6 +1,6 @@
-# Copyright 2022 Tampere University
+# Copyright 2025 Tampere University
 # This source code is licensed under the MIT license. See LICENSE in the repository root directory.
-# Author(s): Ali Mehraj <ali.mehraj@tuni.fi>
+# Author(s): Hamza Rizvi <hamza.rizvi@tuni.fi>
 
 import asyncio
 from typing import Any, cast, Union
