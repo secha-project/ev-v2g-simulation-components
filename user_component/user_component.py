@@ -40,7 +40,6 @@ ARRIVAL_TIME = "ARRIVAL_TIME"
 USER_STATE_TOPIC = "USER_STATE_TOPIC"
 CAR_STATE_TOPIC = "CAR_STATE_TOPIC"
 CAR_METADATA_TOPIC = "CAR_METADATA_TOPIC"
-REQUIREMENTS_WARNING_TOPIC = "REQUIREMENTS_WARNING_TOPIC"
 POWER_DISCHARGE_CAR_TO_STATION_TOPIC = "POWER_DISCHARGE_CAR_TO_STATION_TOPIC"
 
 
@@ -108,14 +107,12 @@ class UserComponent(AbstractSimulationComponent):
             (USER_STATE_TOPIC, str, "User.UserState"),
             (CAR_STATE_TOPIC, str, "User.CarState"),
             (CAR_METADATA_TOPIC, str, "Init.User.CarMetadata"),
-            (REQUIREMENTS_WARNING_TOPIC, str, "Requirements.Warning")
             (POWER_DISCHARGE_CAR_TO_STATION_TOPIC, str, "PowerDischargeCarToStation"),
         )
 
         self._user_state_topic = cast(str, environment[USER_STATE_TOPIC])
         self._car_state_topic = cast(str, environment[CAR_STATE_TOPIC])
         self._car_metadata_topic = cast(str, environment[CAR_METADATA_TOPIC])
-        self._requirements_warning_topic = cast(str, environment[REQUIREMENTS_WARNING_TOPIC])
         self._power_discharge_car_to_station_topic = cast(str, environment[POWER_DISCHARGE_CAR_TO_STATION_TOPIC])
 
         # The easiest way to ensure that the component will listen to all necessary topics
@@ -126,7 +123,6 @@ class UserComponent(AbstractSimulationComponent):
         self._other_topics = [
             "PowerOutputTopic",
             "CarDischargePowerRequirementsTopic",
-            self._requirements_warning_topic,
         ]
 
         # The base class contains several variables that can be used in the child class.
