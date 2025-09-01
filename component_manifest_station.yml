@@ -7,7 +7,8 @@
 Name: StationComponent
 Type: platform
 Description: "Station Component v1.0.1"
-DockerImage: # update
+DockerImage: ghcr.io/secha-project/station_component:latest
+Attributes:
     StationId:
         Environment: STATION_ID
         Optional: false

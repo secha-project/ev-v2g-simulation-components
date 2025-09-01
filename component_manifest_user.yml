@@ -5,7 +5,7 @@
 Name: UserComponent
 Type: platform
 Description: "User component for the Decoupled Simulation Platform"
-DockerImage: # update
+DockerImage: ghcr.io/secha-project/user_component:latest
 Attributes:
     UserId:
         Environment: USER_ID

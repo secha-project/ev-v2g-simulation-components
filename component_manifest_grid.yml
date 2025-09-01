@@ -7,7 +7,8 @@
 Name: GridComponent
 Type: platform
 Description: "Grid Component v1.0.1"
-DockerImage: # update
+DockerImage: ghcr.io/secha-project/grid_component:latest
+Attributes:
     GridId:
         Environment: GRID_ID
         Optional: false

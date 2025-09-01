@@ -7,4 +7,4 @@
 Name: V2GControllerComponent
 Type: platform
 Description: "V2G Controller Component"
-DockerImage: # update
+DockerImage: ghcr.io/secha-project/v2g_controller_component:latest
