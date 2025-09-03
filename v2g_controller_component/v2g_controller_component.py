@@ -4,6 +4,8 @@
 
 import asyncio
 import csv
+import os
+
 from datetime import datetime
 from typing import Any, cast, List, Union
 
@@ -50,6 +52,9 @@ POWER_REQUIREMENT_TOPIC = "POWER_REQUIREMENT_TOPIC"
 TIMEOUT = 1.0
 DEFAULT_MIN_STATE_OF_CHARGE = 50.0
 MAX_STATE_OF_CHARGE = 100.0
+
+# get the directory of the current script
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class V2GControllerComponent(AbstractSimulationComponent):
    
@@ -404,7 +409,9 @@ class V2GControllerComponent(AbstractSimulationComponent):
     
     def _load_user_preferences_from_file(self):
         
-        with open("v2g_user_preferences.csv", newline='') as csvfile:
+        csv_path = os.path.join(BASE_DIR, "v2g_user_preferences.csv")
+
+        with open(csv_path, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 self._user_preferences[row["UserID"]] = {
@@ -418,8 +425,9 @@ class V2GControllerComponent(AbstractSimulationComponent):
         start_time = to_utc_datetime_object(self._latest_epoch_message.start_time)
         hour_str = start_time.strftime("%H:00")
 
+        csv_path = os.path.join(BASE_DIR, "grid_load_daily.csv")
         try:
-            with open("grid_load_daily.csv", newline='') as csvfile:
+            with open(csv_path, newline='') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
                     if row["time"] == hour_str:
