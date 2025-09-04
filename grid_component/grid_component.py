@@ -181,14 +181,14 @@ class GridComponent(AbstractSimulationComponent):
         except (ValueError, TypeError, MessageError) as message_error:
             # When there is an exception while creating the message, it is in most cases a serious error.
             log_exception(message_error)
-            await self.send_error_message("Internal error when creating user state message.")
+            await self.send_error_message("Internal error when creating grid state message.")
 
 
 def create_component() -> GridComponent:
     """
     TODO: add proper description specific for this component.
     """
-    LOGGER.info("create user component")
+    LOGGER.info("create grid component")
     # Read the parameters for the component from the environment variables.
     environment_variables = load_environmental_variables(
         (GRID_ID, int, 0),
@@ -198,7 +198,7 @@ def create_component() -> GridComponent:
     # The cast function here is only used to help Python linters like pyright to recognize the proper type.
     # They are not necessary and can be omitted.
     grid_id = cast(int, environment_variables[GRID_ID])
-    total_max_power_output = cast(str, environment_variables[TOTAL_MAX_POWER_OUTPUT])
+    total_max_power_output = cast(float, environment_variables[TOTAL_MAX_POWER_OUTPUT])
 
     # Create and return a new SimpleComponent object using the values from the environment variables
     return GridComponent(

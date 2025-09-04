@@ -11,7 +11,7 @@ Components:
 
     GridComponent:
         gc1:
-            GridId: "1"
+            GridId: 1
             TotalMaxPowerOutput: 100.0
 
     UserComponent:

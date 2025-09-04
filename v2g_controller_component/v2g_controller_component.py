@@ -103,9 +103,11 @@ class V2GControllerComponent(AbstractSimulationComponent):
         if self.start_message is not None:
             users = self.start_message.get('ProcessParameters', {}).get('UserComponent', {}).keys()
             stations = self.start_message.get('ProcessParameters', {}).get('StationComponent', {}).keys()
+            grid = self.start_message.get('ProcessParameters', {}).get('GridComponent', {}).keys()
             LOGGER.info("START MESSAGE")
             LOGGER.info(f"Users: {users}")
             LOGGER.info(f"Stations: {stations}")
+            LOGGER.info(f"Grid: {grid} ")
             self._total_user_count = len(users)
             self._total_station_count = len(stations)
 
