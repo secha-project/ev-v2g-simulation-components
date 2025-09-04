@@ -12,6 +12,6 @@ Attributes:
     GridId:
         Environment: GRID_ID
         Optional: false
-    MaxPower:
-        Environment: MAX_POWER
+    TotalMaxPowerOutput:
+        Environment: TOTAL_MAX_POWER_OUTPUT
         Optional: false
