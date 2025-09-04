@@ -138,7 +138,8 @@ class V2GControllerComponent(AbstractSimulationComponent):
         NOTE: this method should be overwritten in any child class.
         TODO: add proper description specific for this component.
         """
-        LOGGER.info(f"TOTAL AVAILABLE POWER: {self._total_max_power}")
+        LOGGER.info(f"TOTAL MAX POWER: {self._total_max_power}")
+        LOGGER.info(f"TOTAL AVAILABLE POWER: {self._current_available_power}")
         LOGGER.info("Process epoch")
         LOGGER.info(f"metadata count: {self._epoch_car_metadata_count}")
         LOGGER.info(f"total user count: {self._total_user_count}")
