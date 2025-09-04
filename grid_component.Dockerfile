@@ -20,7 +20,7 @@ RUN pip install --upgrade pip
 RUN pip install -r /requirements.txt
 
 # copy the required directories with their content to the Docker image
-COPY station_component/ /grid_component/
+COPY grid_component/ /grid_component/
 COPY messages/ /messages/
 COPY init/ /init/
 COPY simulation-tools/ /simulation-tools/
