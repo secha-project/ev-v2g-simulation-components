@@ -2,7 +2,7 @@ Simulation:
     Name: "Secha Project V2G charging demo"
     Description: "Secha Project V2G charging demo 1.0"
     InitialStartTime: "2025-08-11T12:00:00.000Z"
-    EpochLength: 3600
+    EpochLength: 1800
     MaxEpochCount: 12
 
 Components:
@@ -33,7 +33,7 @@ Components:
             CarBatteryCapacity: 90.0
             CarModel: "testModel2"
             CarMaxPower: 12.0
-            TargetTime: "2025-08-12T00:00:00.000Z"
+            TargetTime: "2025-08-11T13:00:00.000Z"
             ArrivalTime: "2025-08-11T12:00:00.000Z"
         uc3:
             UserId: 3
@@ -43,19 +43,8 @@ Components:
             CarBatteryCapacity: 100.0
             CarModel: "testModel2"
             CarMaxPower: 25.0
-            TargetTime: "2025-08-11T22:00:00.000Z"
-            ArrivalTime: "2025-08-11T17:00:00.000Z"
-        uc4:
-            UserId: 4
-            UserName: "testUser4"
-            StationId: "3"
-            StateOfCharge: 15.0
-            CarBatteryCapacity: 100.0
-            CarModel: "testModel2"
-            CarMaxPower: 25.0
-            TargetTime: "2025-08-11T16:00:00.000Z"
+            TargetTime: "2025-08-11T14:00:00.000Z"
             ArrivalTime: "2025-08-11T12:00:00.000Z"
-
 
 
     StationComponent:
