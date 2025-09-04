@@ -29,6 +29,7 @@ COMPENSATION_AMOUNT = "COMPENSATION_AMOUNT"
 STATION_STATE_TOPIC = "STATION_STATE_TOPIC"
 POWER_OUTPUT_TOPIC = "POWER_OUTPUT_TOPIC"
 POWER_DISCHARGE_STATION_TO_GRID_TOPIC = "POWER_DISCHARGE_STATION_TO_GRID"
+CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC = "CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC"
 
 TIMEOUT = 1.0
 
@@ -42,7 +43,7 @@ class StationComponent(AbstractSimulationComponent):
         self._station_id = station_id
         self._max_power = max_power
         self._charging_cost = charging_cost
-        self._compensation_ammount = compensation_amount
+        self._compensation_amount = compensation_amount
 
 
         self._station_state: bool = False
@@ -63,6 +64,7 @@ class StationComponent(AbstractSimulationComponent):
         self._station_state_topic = cast(str, environment[STATION_STATE_TOPIC])
         self._power_output_topic = cast(str, environment[POWER_OUTPUT_TOPIC])
         self._power_discharge_station_to_grid_topic = cast(str, environment[POWER_DISCHARGE_STATION_TO_GRID_TOPIC])
+        self._power_discharge_requirement_topic = cast(str, environment[CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC])
 
         # The easiest way to ensure that the component will listen to all necessary topics
         # is to set the self._other_topics variable with the list of the topics to listen to.
@@ -136,7 +138,7 @@ class StationComponent(AbstractSimulationComponent):
                 StationId=self._station_id,
                 MaxPower=self._max_power,
                 ChargingCost=self._charging_cost,
-                CompensationAmount=self._compensation_ammount
+                CompensationAmount=self._compensation_amount
             )
 
             await self._rabbitmq_client.send_message(
@@ -185,7 +187,7 @@ class StationComponent(AbstractSimulationComponent):
             )
 
             await self._rabbitmq_client.send_message(
-                topic_name=self._power_discharge_topic,
+                topic_name=self._power_discharge_requirement_topic,
                 message_bytes=power_discharge_message.bytes()
             )
 
