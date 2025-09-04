@@ -24,7 +24,7 @@ class StationStateMessage(AbstractResultMessage):
     CHARGING_COST_ATTRIBUTE = "ChargingCost" 
     CHARGING_COST_PROPERTY = "charging_cost" 
 
-    COMPENSATION_AMOUNT_ATTRIBUTE = " CompensationAmount" 
+    COMPENSATION_AMOUNT_ATTRIBUTE = "CompensationAmount" 
     COMPENSATION_AMOUNT_PROPERTY = "compensation_amount" 
 
     # all attributes specific that are added to the AbstractResult should be introduced here
