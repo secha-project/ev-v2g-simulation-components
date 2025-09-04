@@ -59,7 +59,8 @@ class StationComponent(AbstractSimulationComponent):
         environment = load_environmental_variables(
             (STATION_STATE_TOPIC, str, "StationStateTopic"),
             (POWER_OUTPUT_TOPIC, str, "PowerOutputTopic"),
-            (POWER_DISCHARGE_STATION_TO_GRID_TOPIC, str, "PowerDischargeStationToGrid")
+            (POWER_DISCHARGE_STATION_TO_GRID_TOPIC, str, "PowerDischargeStationToGrid"),
+            (CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC, str, "CarDischargePowerRequirementTopic"),
         )
         self._station_state_topic = cast(str, environment[STATION_STATE_TOPIC])
         self._power_output_topic = cast(str, environment[POWER_OUTPUT_TOPIC])
