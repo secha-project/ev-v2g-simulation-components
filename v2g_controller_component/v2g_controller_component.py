@@ -122,7 +122,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
         self._used_total_power = 0.0
 
         self._station_state_received = False
-        self._user_state_received = False
+        # self._user_state_received = False
         self._car_state_received = False
         self._power_requirement_message_sent = False
         self._stations = []
@@ -223,8 +223,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
         elif isinstance(message_object, UserStateMessage):
             message_object = cast(UserStateMessage, message_object)
             LOGGER.info(f"user state: {message_object}")
-            LOGGER.info(f"USER STATE MESSAGE: {self._user_state_received}")
-
+            
             if message_object.user_id not in [user.user_id for user in self._users]:
                 LOGGER.error(f"Received an user state message for a user without metadata: {message_object.user_id}")
                 # TODO: figure out what to do in this case:
@@ -239,7 +238,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
                         min_soc = self._user_preferences[user.user_id]["MinimumSOC"] * 100
                         user.target_state_of_charge = min_soc
                     else:
-                        LOGGER.warning(f"No MinimumSOC preference found for user: {user.user_id}")
+                        LOGGER.warning(f"No MinimumSOC preference found for user: {user.user_id}, setting to default {DEFAULT_MIN_STATE_OF_CHARGE}")
                         user.target_state_of_charge = DEFAULT_MIN_STATE_OF_CHARGE
                 
                     user.target_time = message_object.target_time
@@ -271,7 +270,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
                                                               self._user_preferences[user.user_id]["MinimumSOC"]* 100)
 
                     # If SoC == target SoC, check if user is willing to pay for more charging
-                    elif user.state_of_charge == user.target_state_of_charge:
+                    elif user.state_of_charge >= user.target_state_of_charge:
                         station = next((s for s in self._stations if s.station_id == user.station_id), None)
                         if station and user.user_id in self._user_preferences:
                             max_cost = self._user_preferences[user.user_id]["MaxCostForCharging"]
@@ -282,6 +281,9 @@ class V2GControllerComponent(AbstractSimulationComponent):
                                     user.target_state_of_charge = MAX_STATE_OF_CHARGE # min(100.0, user.target_state_of_charge + 10.0)  # or any other logic
                                     user.required_energy = user.car_battery_capacity * (user.target_state_of_charge - user.state_of_charge) / 100
 
+                    else:
+                        user.required_energy = user.car_battery_capacity * (user.target_state_of_charge - user.state_of_charge) / 100
+                    
                     LOGGER.info(str(user))
                     break
 
@@ -291,7 +293,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
         
         elif isinstance(message_object, GridStateMessage):
             message_object = cast(GridStateMessage, message_object)
-            LOGGER.info(f"car state: {message_object}")
+            LOGGER.info(f"grid state: {message_object}")
 
             self._grid_state_received  = True
 
@@ -319,6 +321,12 @@ class V2GControllerComponent(AbstractSimulationComponent):
         connected_users: List[UserData] = []
 
         for user in self._users:
+
+            LOGGER.info(f"EPOCH START TIME: {start_time}")
+            LOGGER.info(f"EPOCH END TIME: {end_time}")
+            LOGGER.info(f"USER ARRIVAL TIME: {user.arrival_time}")
+            LOGGER.info(f"USER TARGET TIME: {user.target_time}")
+
             arrival_time = to_utc_datetime_object(user.arrival_time)
             target_time = to_utc_datetime_object(user.target_time)
             if start_time >= arrival_time and end_time <= target_time:
@@ -339,6 +347,16 @@ class V2GControllerComponent(AbstractSimulationComponent):
                     LOGGER.info("START TIME")
                     LOGGER.info(f"epoch_length: {epoch_length}")
 
+
+                    LOGGER.info(f"Station max power: {power_info.station_max_power}")
+                    LOGGER.info(f"Car max power: {power_info.car_max_power}")
+                    LOGGER.info(f"Current available power: {self._current_available_power}")
+                    LOGGER.info(f"Used total power: {self._used_total_power}")
+                    LOGGER.info(f"Required energy: {power_info.required_energy}")
+
+                    LOGGER.info(f"Total power left: {self._current_available_power - self._used_total_power}")
+                    LOGGER.info(f"Converted value energy: {power_info.required_energy / (epoch_length / 3600)}")
+                   
                     if power_info.target_state_of_charge > power_info.state_of_charge:
                         powerRequirementForStation = min(
                             power_info.station_max_power,
@@ -417,11 +435,13 @@ class V2GControllerComponent(AbstractSimulationComponent):
         with open(csv_path, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                self._user_preferences[row["UserID"]] = {
+                self._user_preferences[int(row["UserID"])] = {
                     "MinimumSOC": float(row["MinimumSOC"]),
                     "MaxCostForCharging": float(row["MaxCostForCharging"]),
                     "DischargePriceThreshold": float(row["DischargePriceThreshold"]),
                 }
+        
+        LOGGER.info(f"User preferences loaded: {self._user_preferences}")
 
     def _is_grid_under_load(self) -> bool:
         """Checks if the grid is under load."""
@@ -514,7 +534,7 @@ async def start_component():
     """
 
     try:
-        LOGGER.debug("start V2G Controller component")
+        LOGGER.info("start V2G Controller component")
         v2g_controller_component = create_component()
         v2g_controller_component._load_user_preferences_from_file()
 
