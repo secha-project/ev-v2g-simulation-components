@@ -223,7 +223,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
         elif isinstance(message_object, UserStateMessage):
             message_object = cast(UserStateMessage, message_object)
             LOGGER.info(f"user state: {message_object}")
-            
+
             if message_object.user_id not in [user.user_id for user in self._users]:
                 LOGGER.error(f"Received an user state message for a user without metadata: {message_object.user_id}")
                 # TODO: figure out what to do in this case:
@@ -264,10 +264,11 @@ class V2GControllerComponent(AbstractSimulationComponent):
                     user.state_of_charge = message_object.state_of_charge
                     
                     if self._check_user_discharge_need(user):
-                        if user.state_of_charge > user.target_state_of_charge:
+                        min_soc = self._user_preferences[user.user_id]["MinimumSOC"] * 100
+                        if (user.state_of_charge != min_soc) and \
+                            (user.state_of_charge >= user.target_state_of_charge):
                             user.required_energy = 0.0
-                            user.target_state_of_charge = max(user.state_of_charge - 10.0, 
-                                                              self._user_preferences[user.user_id]["MinimumSOC"]* 100)
+                            user.target_state_of_charge = max(user.state_of_charge - 10.0, min_soc)
 
                     # If SoC == target SoC, check if user is willing to pay for more charging
                     elif user.state_of_charge >= user.target_state_of_charge:
