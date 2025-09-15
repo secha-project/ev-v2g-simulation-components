@@ -30,8 +30,10 @@ STATION_STATE_TOPIC = "STATION_STATE_TOPIC"
 POWER_OUTPUT_TOPIC = "POWER_OUTPUT_TOPIC"
 POWER_DISCHARGE_STATION_TO_GRID_TOPIC = "POWER_DISCHARGE_STATION_TO_GRID"
 CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC = "CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC"
+POWER_REQUIREMENT_TOPIC = "POWER_REQUIREMENT_TOPIC"
 
 TIMEOUT = 1.0
+GRID_ID = "1"
 
 class StationComponent(AbstractSimulationComponent):
 
@@ -61,12 +63,14 @@ class StationComponent(AbstractSimulationComponent):
             (POWER_OUTPUT_TOPIC, str, "PowerOutputTopic"),
             (POWER_DISCHARGE_STATION_TO_GRID_TOPIC, str, "PowerDischargeStationToGrid"),
             (CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC, str, "CarDischargePowerRequirementTopic"),
+            (POWER_REQUIREMENT_TOPIC, str, "PowerRequirementTopic"),
         )
         self._station_state_topic = cast(str, environment[STATION_STATE_TOPIC])
         self._power_output_topic = cast(str, environment[POWER_OUTPUT_TOPIC])
         self._power_discharge_station_to_grid_topic = cast(str, environment[POWER_DISCHARGE_STATION_TO_GRID_TOPIC])
         self._power_discharge_requirement_topic = cast(str, environment[CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC])
-
+        self._power_requirement_topic = cast(str, environment[POWER_REQUIREMENT_TOPIC])
+        
         # The easiest way to ensure that the component will listen to all necessary topics
         # is to set the self._other_topics variable with the list of the topics to listen to.
         # Note, that the "SimState" and "Epoch" topic listeners are added automatically by the parent class.
@@ -91,34 +95,45 @@ class StationComponent(AbstractSimulationComponent):
 
         if (self._power_requirement_received):
             await self._send_poweroutput_message()
-            return True
-        
-        if self._power_discharge_car_to_station_received:
-            await self._send_power_discharge_station_to_grid_message()
-            return True
+            #return True
         
         if self._power_discharge_requirement_received:
             await self._send_power_discharge_requirement_to_user()
-            return True
+            #return True
+        
+        LOGGER.info(f"power discharge car to station received value: {self._power_discharge_car_to_station_received}")
+        if self._power_discharge_car_to_station_received:
+            await self._send_power_discharge_station_to_grid_message()
+            #return True
 
+        if self._power_output == 0.0 and \
+            self._power_discharge_requirement_received and \
+            self._power_discharge_car_to_station_received:
+                return self._station_state
+
+        elif self._power_output != 0.0:
+            return self._station_state
+        
         return False
-
 
     async def _send_power_discharge_station_to_grid_message(self):
         """
         Sends power discharge station to grid message to Grid component
         """
+        LOGGER.info("Sending power discharge station to grid message")
+
         try:
             powerdischarge_message = self._message_generator.get_message(
                 PowerDischargeStationToGridMessage,
                 EpochNumber=self._latest_epoch,
                 TriggeringMessageIds=self._triggering_message_ids,
                 Power=self._discharged_power,
-                StationId=self._station_id
+                StationId=self._station_id,
+                GridId=GRID_ID
             )
 
             await self._rabbitmq_client.send_message(
-                topic_name=self._station_state_topic,
+                topic_name=self._power_discharge_station_to_grid_topic,
                 message_bytes=powerdischarge_message.bytes()
             )
 
@@ -188,7 +203,8 @@ class StationComponent(AbstractSimulationComponent):
             )
 
             await self._rabbitmq_client.send_message(
-                topic_name=self._power_discharge_requirement_topic,
+                #topic_name=self._power_discharge_requirement_topic,
+                topic_name=self._power_requirement_topic,
                 message_bytes=power_discharge_message.bytes()
             )
 
@@ -207,45 +223,45 @@ class StationComponent(AbstractSimulationComponent):
             message_object = cast(PowerRequirementMessage, message_object)
             LOGGER.info(str(message_object))
             if message_object.station_id == self._station_id:
-                LOGGER.debug(f"Received PowerRequirementMessage from {message_object.source_process_id}")
+                LOGGER.info(f"Received PowerRequirementMessage from {message_object.source_process_id}")
                 self._power_output = float(message_object.power)
                 self._user_id = message_object.user_id
                 self._power_requirement_received = True
                 await self.start_epoch()
             else:
-                LOGGER.debug(f"Ignoring PowerRequirementMessage from {message_object.source_process_id}")
+                LOGGER.info(f"Ignoring PowerRequirementMessage from {message_object.source_process_id}")
 
         elif isinstance(message_object, CarDischargePowerRequirementMessage):
             message_object = cast(CarDischargePowerRequirementMessage, message_object)
             LOGGER.info(str(message_object))
             if message_object.station_id == self._station_id:
-                LOGGER.debug(f"Received CarDischargePowerRequirementMessage from {message_object.source_process_id}")
+                LOGGER.info(f"Received CarDischargePowerRequirementMessage from {message_object.source_process_id}")
                 self._power_discharge_needed = float(message_object.power)
                 self._user_id = message_object.user_id
                 self._power_discharge_requirement_received = True
                 await self.start_epoch()
             else:
-                LOGGER.debug(f"Ignoring PowerRequirementMessage from {message_object.source_process_id}")
+                LOGGER.info(f"Ignoring PowerRequirementMessage from {message_object.source_process_id}")
 
         elif isinstance(message_object, PowerDischargeCarToStationMessage):
             message_object = cast(PowerDischargeCarToStationMessage, message_object)
             LOGGER.info(str(message_object))
             if message_object.station_id == self._station_id:
-                LOGGER.debug(f"Received PowerRequirementMessage from {message_object.source_process_id}")
+                LOGGER.info(f"Received PowerDischargeCarToStationMessage from {message_object.source_process_id}")
                 self._user_id = message_object.user_id
                 self._power_discharge_car_to_station_received = True
                 self._discharged_power = message_object.power
                 await self.start_epoch()
             else:
-                LOGGER.debug(f"Ignoring PowerRequirementMessage from {message_object.source_process_id}")
-        
+                LOGGER.info(f"Ignoring PowerDischargeCarToStationMessage from {message_object.source_process_id}")
+
         else:
-            LOGGER.debug(f"Received unknown message from {message_routing_key}: {message_object}")
+            LOGGER.info(f"Received unknown message from {message_routing_key}: {message_object}")
 
 
 def create_component() -> StationComponent:
 
-    LOGGER.debug("create")
+    LOGGER.info("create")
     environment_variables = load_environmental_variables(
         (STATION_ID, str, ""),
         (MAX_POWER, float, 0.0),
@@ -267,7 +283,7 @@ def create_component() -> StationComponent:
 
 async def start_component():
     try:
-        LOGGER.debug("start")
+        LOGGER.info("start")
         station_component = create_component()
         await station_component.start()
 

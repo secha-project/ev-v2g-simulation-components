@@ -122,7 +122,8 @@ class UserComponent(AbstractSimulationComponent):
         # receive topic
         self._other_topics = [
             "PowerOutputTopic",
-            "CarDischargePowerRequirementsTopic",
+            "CarDischargePowerRequirementTopic",
+            "PowerRequirementTopic"
         ]
 
         # The base class contains several variables that can be used in the child class.
@@ -274,8 +275,9 @@ class UserComponent(AbstractSimulationComponent):
                 LOGGER.info(f"epoch length: {epoch_length}")
                 original_energy = (self._car_battery_capacity * self._state_of_charge) / 100  # in kWh
                 LOGGER.info(f"ORIGINAL ENERGY: {original_energy}")
+                
+                self._discharged_power = message_object.power
                 new_energy = (message_object.power * epoch_length) / 3600  # in kWh
-                self._discharged_power = new_energy
                 LOGGER.info(f"New ENERGY: {new_energy}")
                 new_total_energy = original_energy - new_energy
                 LOGGER.info(f"New TOTAL ENERGY: {new_total_energy}")
@@ -378,7 +380,7 @@ class UserComponent(AbstractSimulationComponent):
             )
 
             await self._rabbitmq_client.send_message(
-                topic_name=self._car_metadata_topic,
+                topic_name=self._power_discharge_car_to_station_topic,
                 message_bytes= car_metadata_message.bytes()
             )
 
