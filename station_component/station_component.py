@@ -56,6 +56,9 @@ class StationComponent(AbstractSimulationComponent):
         self._discharged_power: float = 0.0
         self._power_discharge_needed: float = 0.0
         self._power_discharge_requirement_received = False
+        self._discharge_epoch_sent: bool = False
+        self._power_output_epoch_sent: bool = False
+        
 
 
         environment = load_environmental_variables(
@@ -86,19 +89,23 @@ class StationComponent(AbstractSimulationComponent):
         self._discharged_power = 0.0
         self._power_discharge_needed: float = 0.0
         self._power_discharge_requirement_received = False
-
+        self._discharge_epoch_sent: bool = False
+        self._power_output_epoch_sent: bool = False
+        
     async def process_epoch(self) -> bool:
 
         if not (self._station_state):
             await self._send_stationstate_message()
             self._station_state = True
 
-        if (self._power_requirement_received):
+        if (self._power_requirement_received and not self._power_output_epoch_sent):
             await self._send_poweroutput_message()
+            self._power_output_epoch_sent = True
             #return True
         
-        if self._power_discharge_requirement_received:
+        if self._power_discharge_requirement_received and not self._discharge_epoch_sent:
             await self._send_power_discharge_requirement_to_user()
+            self._discharge_epoch_sent = True
             #return True
         
         LOGGER.info(f"power discharge car to station received value: {self._power_discharge_car_to_station_received}")
