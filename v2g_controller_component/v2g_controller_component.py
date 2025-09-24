@@ -87,7 +87,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
         self._send_car_discharge_power_requirement = False
 
         environment = load_environmental_variables(
-            (POWER_REQUIREMENT_TOPIC, str, "PowerRequirementTopic")
+            (POWER_REQUIREMENT_TOPIC, str, "V2GController.PowerRequirementTopic")
         )
 
         self._power_requirement_topic = cast(str, environment[POWER_REQUIREMENT_TOPIC])

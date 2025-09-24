@@ -66,7 +66,7 @@ class StationComponent(AbstractSimulationComponent):
             (POWER_OUTPUT_TOPIC, str, "PowerOutputTopic"),
             (POWER_DISCHARGE_STATION_TO_GRID_TOPIC, str, "PowerDischargeStationToGrid"),
             (CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC, str, "CarDischargePowerRequirementTopic"),
-            (POWER_REQUIREMENT_TOPIC, str, "PowerRequirementTopic"),
+            (POWER_REQUIREMENT_TOPIC, str, "Station.PowerRequirementTopic"),
         )
         self._station_state_topic = cast(str, environment[STATION_STATE_TOPIC])
         self._power_output_topic = cast(str, environment[POWER_OUTPUT_TOPIC])
@@ -77,7 +77,7 @@ class StationComponent(AbstractSimulationComponent):
         # The easiest way to ensure that the component will listen to all necessary topics
         # is to set the self._other_topics variable with the list of the topics to listen to.
         # Note, that the "SimState" and "Epoch" topic listeners are added automatically by the parent class.
-        self._other_topics = ["PowerRequirementTopic", "PowerDischargeCarToStation"]
+        self._other_topics = ["V2GController.PowerRequirementTopic", "PowerDischargeCarToStation"]
 
 
     def clear_epoch_variables(self) -> None:
