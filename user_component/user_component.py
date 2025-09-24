@@ -88,6 +88,7 @@ class UserComponent(AbstractSimulationComponent):
         self._car_discharge_power_requirement_received = False
         # self._power_discharge_car_to_station_message_ready = False
         self._discharged_power=0.0
+        self._power_received_value = 0.0
 
         # Add checks for the parameters if necessary
         # and set initialization error if there is a problem with the parameters.
@@ -123,7 +124,7 @@ class UserComponent(AbstractSimulationComponent):
         self._other_topics = [
             "PowerOutputTopic",
             "CarDischargePowerRequirementTopic",
-            "PowerRequirementTopic"
+            "Station.PowerRequirementTopic"
         ]
 
         # The base class contains several variables that can be used in the child class.
@@ -195,22 +196,24 @@ class UserComponent(AbstractSimulationComponent):
                     LOGGER.info("Not in a station => setting power_output_received to True")
                     self._power_output_received = True
 
-        if self._power_output_received and not self._car_state_sent:
-            await self._send_car_state_message()
+        if self._power_output_received and self._power_received_value != 0.0 and not self._car_state_sent:
             self._car_state_sent = True
 
 
         if self._car_discharge_power_requirement_received and not self._power_discharge_car_to_station_message_sent:
             await self._send_power_discharge_car_to_station_message()
             self._power_discharge_car_to_station_message_sent= True
+            self._car_state_sent = True
         
-        
-        # if self._power_discharge_car_to_station_message_ready and not self._power_discharge_car_to_station_message_sent:
-        #     await self._send_power_discharge_car_to_station_message()
-        #     self._power_discharge_car_to_station_message_sent= True
+        if self._car_state_sent:
+            await self._send_car_state_message()
+            self._car_state_sent = True
 
         # return True to indicate that the component is finished with the current epoch
-        return self._user_state_sent and self._car_state_sent
+        if self._car_discharge_power_requirement_received and not self._power_discharge_car_to_station_message_sent:
+            return self._user_state_sent and self._car_state_sent and self._power_discharge_car_to_station_message_sent
+        else:
+            return self._user_state_sent and self._car_state_sent
 
 
     async def all_messages_received_for_epoch(self) -> bool:
@@ -250,6 +253,7 @@ class UserComponent(AbstractSimulationComponent):
                 self._state_of_charge = new_soc
                 LOGGER.info("PowerOUTPUT message processed")
                 self._power_output_received = True
+                self._power_received_value = message_object.power_output
                 await self.start_epoch()
             else:
                 LOGGER.debug(f"Ignoring PowerOutputMessage from {message_object.source_process_id}")
