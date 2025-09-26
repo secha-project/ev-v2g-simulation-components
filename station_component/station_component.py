@@ -77,7 +77,7 @@ class StationComponent(AbstractSimulationComponent):
         # The easiest way to ensure that the component will listen to all necessary topics
         # is to set the self._other_topics variable with the list of the topics to listen to.
         # Note, that the "SimState" and "Epoch" topic listeners are added automatically by the parent class.
-        self._other_topics = ["V2GController.PowerRequirementTopic", "PowerDischargeCarToStation"]
+        self._other_topics = ["V2GController.PowerRequirementTopic", "PowerDischargeCarToStation","V2GController.CarDischargePowerRequirementTopic"]
 
 
     def clear_epoch_variables(self) -> None:

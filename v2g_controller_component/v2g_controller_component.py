@@ -48,6 +48,7 @@ CAR_METADATA_TOPIC = "CAR_METADATA_TOPIC"
 STATION_STATE_TOPIC = "STATION_STATE_TOPIC"
 POWER_OUTPUT_TOPIC = "POWER_OUTPUT_TOPIC"
 POWER_REQUIREMENT_TOPIC = "POWER_REQUIREMENT_TOPIC"
+CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC = "CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC"
 
 TIMEOUT = 1.0
 DEFAULT_MIN_STATE_OF_CHARGE = 50.0
@@ -87,10 +88,12 @@ class V2GControllerComponent(AbstractSimulationComponent):
         self._send_car_discharge_power_requirement = False
 
         environment = load_environmental_variables(
-            (POWER_REQUIREMENT_TOPIC, str, "V2GController.PowerRequirementTopic")
+            (POWER_REQUIREMENT_TOPIC, str, "V2GController.PowerRequirementTopic"),
+            (CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC, str, "V2GController.CarDischargePowerRequirementTopic")
         )
 
         self._power_requirement_topic = cast(str, environment[POWER_REQUIREMENT_TOPIC])
+        self._car_discharge_power_requirement_topic = cast(str, environment[CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC])
 
         self._other_topics = [
             "Init.User.CarMetadata",
@@ -516,7 +519,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
             )
 
             await self._rabbitmq_client.send_message(
-                topic_name=self._power_requirement_topic,
+                topic_name=self._car_discharge_power_requirement_topic,
                 message_bytes= power_requirement_message.bytes()
             )
 
