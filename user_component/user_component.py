@@ -19,6 +19,7 @@ from messages.power_output_message import PowerOutputMessage
 from messages.power_discharge_car_to_station_message import PowerDischargeCarToStationMessage
 from messages.car_discharge_power_requirement_message import CarDischargePowerRequirementMessage
 from messages.grid_load_status_message import GridLoadStatusMessage
+from messages.total_charging_cost_message import TotalChargingCostMessage
 
 # initialize logging object for the module
 LOGGER = FullLogger(__name__)
@@ -86,6 +87,8 @@ class UserComponent(AbstractSimulationComponent):
         self._power_received_value = 0.0
         self._grid_load_status_received  = False
         self._grid_load_status = False
+        self._total_charging_cost = 0.0
+        self._total_charging_cost_received = False
 
         # Add checks for the parameters if necessary
         # and set initialization error if there is a problem with the parameters.
@@ -123,6 +126,7 @@ class UserComponent(AbstractSimulationComponent):
             "CarDischargePowerRequirementTopic",
             "Station.PowerRequirementTopic",
             "V2GController.GridLoadStatus",
+            "Station.TotalChargingCost",
         ]
 
         # The base class contains several variables that can be used in the child class.
@@ -165,7 +169,7 @@ class UserComponent(AbstractSimulationComponent):
         self._car_discharge_power_requirement_received = False
         self._grid_load_status_received  = False
         self._grid_load_status = False
-        
+        self._total_charging_cost_received = False
 
     async def process_epoch(self) -> bool:
         """
@@ -203,6 +207,9 @@ class UserComponent(AbstractSimulationComponent):
                 await self._send_power_discharge_car_to_station_message()
                 self._power_discharge_car_to_station_message_sent= True
                 self._car_state_sent = True
+        
+        if self._total_charging_cost_received:
+            LOGGER.info(f"Total charging cost received in user component: {self._total_charging_cost}")
         
         if self._car_state_sent:
             await self._send_car_state_message()
@@ -299,6 +306,13 @@ class UserComponent(AbstractSimulationComponent):
             self._grid_load_status_received  = True
             self._grid_load_status = message_object.load_status
 
+            await self.start_epoch()
+        
+        elif isinstance(message_object, TotalChargingCostMessage):
+            message_object = cast(TotalChargingCostMessage, message_object)
+            LOGGER.info(f"Total charging cost message received: {str(message_object)}")
+            self._total_charging_cost_received = True
+            self._total_charging_cost = message_object.total_charging_cost
             await self.start_epoch()
 
         else:

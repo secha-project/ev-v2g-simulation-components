@@ -17,6 +17,7 @@ from messages.power_discharge_car_to_station_message import PowerDischargeCarToS
 from messages.power_discharge_station_to_grid_message import PowerDischargeStationToGridMessage
 from messages.car_discharge_power_requirement_message import CarDischargePowerRequirementMessage
 from messages.grid_load_status_message import GridLoadStatusMessage
+from messages.total_charging_cost_message import TotalChargingCostMessage
 
 LOGGER = FullLogger(__name__)
 
@@ -31,6 +32,7 @@ POWER_OUTPUT_TOPIC = "POWER_OUTPUT_TOPIC"
 POWER_DISCHARGE_STATION_TO_GRID_TOPIC = "POWER_DISCHARGE_STATION_TO_GRID"
 CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC = "CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC"
 POWER_REQUIREMENT_TOPIC = "POWER_REQUIREMENT_TOPIC"
+TOTAL_CHARGING_COST_TOPIC = "TOTAL_CHARGING_COST_TOPIC"
 
 TIMEOUT = 1.0
 GRID_ID = "1"
@@ -60,6 +62,8 @@ class StationComponent(AbstractSimulationComponent):
         self._power_output_epoch_sent: bool = False
         self._grid_load_status_received  = False
         self._grid_load_status = False
+        self._total_charging_cost = 0.0
+        self._send_total_charging_cost = False
 
         environment = load_environmental_variables(
             (STATION_STATE_TOPIC, str, "StationStateTopic"),
@@ -67,12 +71,14 @@ class StationComponent(AbstractSimulationComponent):
             (POWER_DISCHARGE_STATION_TO_GRID_TOPIC, str, "PowerDischargeStationToGrid"),
             (CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC, str, "CarDischargePowerRequirementTopic"),
             (POWER_REQUIREMENT_TOPIC, str, "Station.PowerRequirementTopic"),
+            (TOTAL_CHARGING_COST_TOPIC, str, "Station.TotalChargingCost"),
         )
         self._station_state_topic = cast(str, environment[STATION_STATE_TOPIC])
         self._power_output_topic = cast(str, environment[POWER_OUTPUT_TOPIC])
         self._power_discharge_station_to_grid_topic = cast(str, environment[POWER_DISCHARGE_STATION_TO_GRID_TOPIC])
         self._power_discharge_requirement_topic = cast(str, environment[CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC])
         self._power_requirement_topic = cast(str, environment[POWER_REQUIREMENT_TOPIC])
+        self._total_charging_cost_topic = cast(str, environment[TOTAL_CHARGING_COST_TOPIC])
         
         # The easiest way to ensure that the component will listen to all necessary topics
         # is to set the self._other_topics variable with the list of the topics to listen to.
@@ -97,6 +103,7 @@ class StationComponent(AbstractSimulationComponent):
         self._power_output_epoch_sent: bool = False
         self._grid_load_status_received  = False
         self._grid_load_status = False
+        self._send_total_charging_cost = False
         
     async def process_epoch(self) -> bool:
 
@@ -117,6 +124,14 @@ class StationComponent(AbstractSimulationComponent):
         LOGGER.info(f"power discharge car to station received value: {self._power_discharge_car_to_station_received}")
         if self._power_discharge_car_to_station_received:
             await self._send_power_discharge_station_to_grid_message()
+        
+        if self._power_output_epoch_sent and not self._send_total_charging_cost:
+    
+            self._total_charging_cost += self._power_output * self._charging_cost
+            await self._send_total_charging_cost_message()
+            self._send_total_charging_cost = True
+            LOGGER.info(f"Total charging cost calculated in current epoch: {self._total_charging_cost}")
+
         
         if not self._grid_load_status and self._power_requirement_received and self._power_output_epoch_sent:
             return True
@@ -224,6 +239,37 @@ class StationComponent(AbstractSimulationComponent):
             # When there is an exception while creating the message, it is in most cases a serious error.
             log_exception(message_error)
             await self.send_error_message("Internal error when creating result message.")
+    
+    # async def _calculate_total_charging_cost(self) -> None:
+    #     """
+    #     Calculates total charging cost
+    #     """
+    #     try:
+    #         self._total_charging_cost += self._power_output * self._charging_cost
+    #         LOGGER.info(f"Total charging cost calculated in current epoch: {self._total_charging_cost}")
+    #     except Exception as e:
+    #         log_exception(e)
+    #         await self.send_error_message("Internal error when calculating total charging cost.")
+
+    async def _send_total_charging_cost_message(self) -> None:
+        """Sends a total charging cost message."""
+        try:
+            total_charging_cost_message = self._message_generator.get_message(
+                TotalChargingCostMessage,
+                EpochNumber=self._latest_epoch,
+                TriggeringMessageIds=self._triggering_message_ids,
+                TotalChargingCost=self._total_charging_cost
+            )
+
+            await self._rabbitmq_client.send_message(
+                topic_name=self._total_charging_cost_topic,
+                message_bytes= total_charging_cost_message.bytes()
+            )
+
+        except (ValueError, TypeError, MessageError) as message_error:
+            log_exception(message_error)
+            await self.send_error_message("Internal error when creating total charging cost message.")
+
 
     async def all_messages_received_for_epoch(self) -> bool:
         return True
