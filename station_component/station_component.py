@@ -5,7 +5,6 @@
 import asyncio
 from typing import Any, cast, Union
 
-from messages.car_discharge_power_requirement_message import CarDischargePowerRequirementMessage
 from tools.components import AbstractSimulationComponent
 from tools.exceptions.messages import MessageError
 from tools.messages import BaseMessage
@@ -16,7 +15,8 @@ from messages.power_output_message import PowerOutputMessage
 from messages.power_requirement_message import PowerRequirementMessage
 from messages.power_discharge_car_to_station_message import PowerDischargeCarToStationMessage
 from messages.power_discharge_station_to_grid_message import PowerDischargeStationToGridMessage
-
+from messages.car_discharge_power_requirement_message import CarDischargePowerRequirementMessage
+from messages.grid_load_status_message import GridLoadStatusMessage
 
 LOGGER = FullLogger(__name__)
 
@@ -58,8 +58,8 @@ class StationComponent(AbstractSimulationComponent):
         self._power_discharge_requirement_received = False
         self._discharge_epoch_sent: bool = False
         self._power_output_epoch_sent: bool = False
-        
-
+        self._grid_load_status_received  = False
+        self._grid_load_status = False
 
         environment = load_environmental_variables(
             (STATION_STATE_TOPIC, str, "StationStateTopic"),
@@ -77,8 +77,12 @@ class StationComponent(AbstractSimulationComponent):
         # The easiest way to ensure that the component will listen to all necessary topics
         # is to set the self._other_topics variable with the list of the topics to listen to.
         # Note, that the "SimState" and "Epoch" topic listeners are added automatically by the parent class.
-        self._other_topics = ["V2GController.PowerRequirementTopic", "PowerDischargeCarToStation","V2GController.CarDischargePowerRequirementTopic"]
-
+        self._other_topics = [
+            "V2GController.PowerRequirementTopic", 
+            "PowerDischargeCarToStation",
+            "V2GController.CarDischargePowerRequirementTopic",
+            "V2GController.GridLoadStatus",
+        ]
 
     def clear_epoch_variables(self) -> None:
         self._station_state = False
@@ -91,6 +95,8 @@ class StationComponent(AbstractSimulationComponent):
         self._power_discharge_requirement_received = False
         self._discharge_epoch_sent: bool = False
         self._power_output_epoch_sent: bool = False
+        self._grid_load_status_received  = False
+        self._grid_load_status = False
         
     async def process_epoch(self) -> bool:
 
@@ -111,15 +117,14 @@ class StationComponent(AbstractSimulationComponent):
         LOGGER.info(f"power discharge car to station received value: {self._power_discharge_car_to_station_received}")
         if self._power_discharge_car_to_station_received:
             await self._send_power_discharge_station_to_grid_message()
-            #return True
-
-        if self._power_output == 0.0 and \
-            self._power_discharge_requirement_received and \
+        
+        if not self._grid_load_status and self._power_requirement_received and self._power_output_epoch_sent:
+            return True
+        
+        if self._grid_load_status and \
+            self._power_discharge_car_to_station_received and \
             self._power_discharge_car_to_station_received:
-                return self._station_state
-
-        elif self._power_output != 0.0:
-            return self._station_state
+            return True
         
         return False
 
@@ -261,7 +266,15 @@ class StationComponent(AbstractSimulationComponent):
                 await self.start_epoch()
             else:
                 LOGGER.info(f"Ignoring PowerDischargeCarToStationMessage from {message_object.source_process_id}")
+        
+        elif isinstance(message_object, GridLoadStatusMessage):
+            message_object = cast(GridLoadStatusMessage, message_object)
+            LOGGER.info(f"Grid load status message received: {str(message_object)}")
 
+            self._grid_load_status_received  = True
+            self._grid_load_status = message_object.load_status
+
+            await self.start_epoch()
         else:
             LOGGER.info(f"Received unknown message from {message_routing_key}: {message_object}")
 

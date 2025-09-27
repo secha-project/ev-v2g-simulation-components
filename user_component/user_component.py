@@ -18,7 +18,7 @@ from messages.user_state_message import UserStateMessage
 from messages.power_output_message import PowerOutputMessage
 from messages.power_discharge_car_to_station_message import PowerDischargeCarToStationMessage
 from messages.car_discharge_power_requirement_message import CarDischargePowerRequirementMessage
-
+from messages.grid_load_status_message import GridLoadStatusMessage
 
 # initialize logging object for the module
 LOGGER = FullLogger(__name__)
@@ -32,7 +32,6 @@ STATE_OF_CHARGE = "STATE_OF_CHARGE"
 CAR_BATTERY_CAPACITY = "CAR_BATTERY_CAPACITY"
 CAR_MODEL = "CAR_MODEL"
 CAR_MAX_POWER = "CAR_MAX_POWER"
-# TARGET_STATE_OF_CHARGE = "TARGET_STATE_OF_CHARGE"
 TARGET_TIME = "TARGET_TIME"
 ARRIVAL_TIME = "ARRIVAL_TIME"
 
@@ -60,8 +59,6 @@ class UserComponent(AbstractSimulationComponent):
         arrival_time: str,
         user_name: str,
         car_model: str
-        # target_state_of_charge: float,
-        
     ):
 
         # Initialize the AbstractSimulationComponent using the values from the environmental variables.
@@ -76,7 +73,6 @@ class UserComponent(AbstractSimulationComponent):
         self._car_battery_capacity = car_battery_capacity
         self._car_model = car_model
         self._car_max_power = car_max_power
-        # self._target_state_of_charge = target_state_of_charge
         self._target_time = target_time
         self._arrival_time = arrival_time
 
@@ -86,9 +82,10 @@ class UserComponent(AbstractSimulationComponent):
         self._car_state_sent = False
         self._power_discharge_car_to_station_message_sent = False
         self._car_discharge_power_requirement_received = False
-        # self._power_discharge_car_to_station_message_ready = False
         self._discharged_power=0.0
         self._power_received_value = 0.0
+        self._grid_load_status_received  = False
+        self._grid_load_status = False
 
         # Add checks for the parameters if necessary
         # and set initialization error if there is a problem with the parameters.
@@ -124,7 +121,8 @@ class UserComponent(AbstractSimulationComponent):
         self._other_topics = [
             "PowerOutputTopic",
             "CarDischargePowerRequirementTopic",
-            "Station.PowerRequirementTopic"
+            "Station.PowerRequirementTopic",
+            "V2GController.GridLoadStatus",
         ]
 
         # The base class contains several variables that can be used in the child class.
@@ -165,7 +163,8 @@ class UserComponent(AbstractSimulationComponent):
         self._power_output_received = False
         self._power_discharge_car_to_station_message_sent = False
         self._car_discharge_power_requirement_received = False
-        # self._power_discharge_car_to_station_message_ready = False
+        self._grid_load_status_received  = False
+        self._grid_load_status = False
         
 
     async def process_epoch(self) -> bool:
@@ -196,26 +195,24 @@ class UserComponent(AbstractSimulationComponent):
                     LOGGER.info("Not in a station => setting power_output_received to True")
                     self._power_output_received = True
 
-        if self._power_output_received and self._power_received_value != 0.0 and not self._car_state_sent:
+        if self._grid_load_status_received and not self._grid_load_status and self._power_output_received:
             self._car_state_sent = True
-
-
-        if self._car_discharge_power_requirement_received and not self._power_discharge_car_to_station_message_sent:
-            await self._send_power_discharge_car_to_station_message()
-            self._power_discharge_car_to_station_message_sent= True
-            self._car_state_sent = True
+        
+        if (self._grid_load_status_received and self._grid_load_status) and \
+            (self._car_discharge_power_requirement_received and not self._power_discharge_car_to_station_message_sent):
+                await self._send_power_discharge_car_to_station_message()
+                self._power_discharge_car_to_station_message_sent= True
+                self._car_state_sent = True
         
         if self._car_state_sent:
             await self._send_car_state_message()
             self._car_state_sent = True
-
-        # return True to indicate that the component is finished with the current epoch
-        if self._car_discharge_power_requirement_received and not self._power_discharge_car_to_station_message_sent:
-            return self._user_state_sent and self._car_state_sent and self._power_discharge_car_to_station_message_sent
-        else:
-            return self._user_state_sent and self._car_state_sent
-
-
+        
+        if self._car_state_sent:
+            return True
+    
+        return False
+    
     async def all_messages_received_for_epoch(self) -> bool:
         return True
 
@@ -291,11 +288,18 @@ class UserComponent(AbstractSimulationComponent):
                 self._state_of_charge = new_soc
                 LOGGER.info("CarDischargePowerRequirement message processed")
                 self._car_discharge_power_requirement_received = True
-                # self._power_discharge_car_to_station_message_ready = True
                 await self.start_epoch()
             else:
                 LOGGER.debug(f"Ignoring CarDischargePowerRequirementMessage from {message_object.source_process_id}")
 
+        elif isinstance(message_object, GridLoadStatusMessage):
+            message_object = cast(GridLoadStatusMessage, message_object)
+            LOGGER.info(f"Grid load status message received: {str(message_object)}")
+
+            self._grid_load_status_received  = True
+            self._grid_load_status = message_object.load_status
+
+            await self.start_epoch()
 
         else:
             LOGGER.debug(f"Received unknown message from {message_routing_key}: {message_object}")
@@ -308,7 +312,6 @@ class UserComponent(AbstractSimulationComponent):
                 EpochNumber=self._latest_epoch,
                 TriggeringMessageIds=self._triggering_message_ids,
                 UserId=self._user_id,
-                #TargetStateOfCharge=self._target_state_of_charge,    ###Fetched from initial conditions
                 TargetTime=self._target_time,
                 ArrivalTime=self._arrival_time
             )
@@ -422,7 +425,6 @@ def create_component() -> UserComponent:
     car_battery_capacity = cast(float, environment_variables[CAR_BATTERY_CAPACITY])
     car_model = cast(str, environment_variables[CAR_MODEL])
     car_max_power = cast(float, environment_variables[CAR_MAX_POWER])
-    # target_state_of_charge = cast(float, environment_variables[TARGET_STATE_OF_CHARGE])
     target_time = cast(str, environment_variables[TARGET_TIME])
     arrival_time = cast(str, environment_variables[ARRIVAL_TIME])
 
@@ -436,7 +438,6 @@ def create_component() -> UserComponent:
         car_battery_capacity = car_battery_capacity,
         car_model = car_model,
         car_max_power = car_max_power,
-        # target_state_of_charge = target_state_of_charge,
         target_time = target_time,
         arrival_time = arrival_time
     )
