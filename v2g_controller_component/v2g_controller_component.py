@@ -291,6 +291,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
                             max_cost = self._user_preferences[user.user_id]["MaxCostForCharging"]
                             if max_cost >= station.charging_cost:
                                 # Allow further charging by increasing target SoC (e.g., up to 100%)
+                                MAX_STATE_OF_CHARGE = self._user_preferences[user.user_id].get("MaximumSOC", 1.0) * 100
                                 if user.target_state_of_charge < MAX_STATE_OF_CHARGE:
                                     LOGGER.info(f"User {user.user_id} is willing to pay for more charging at station {station.station_id}. Increasing target SoC.")
                                     user.target_state_of_charge = MAX_STATE_OF_CHARGE # min(100.0, user.target_state_of_charge + 10.0)  # or any other logic
@@ -460,6 +461,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
                     "MinimumSOC": float(row["MinimumSOC"]),
                     "MaxCostForCharging": float(row["MaxCostForCharging"]),
                     "DischargePriceThreshold": float(row["DischargePriceThreshold"]),
+                    "MaximumSOC": float(row["MaximumSOC"]),
                 }
         
         LOGGER.info(f"User preferences loaded: {self._user_preferences}")
