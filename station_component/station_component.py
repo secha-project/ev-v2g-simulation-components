@@ -258,7 +258,8 @@ class StationComponent(AbstractSimulationComponent):
                 TotalChargingCostMessage,
                 EpochNumber=self._latest_epoch,
                 TriggeringMessageIds=self._triggering_message_ids,
-                TotalChargingCost=self._total_charging_cost
+                TotalChargingCost=self._total_charging_cost,
+                UserId=self._user_id
             )
 
             await self._rabbitmq_client.send_message(

@@ -201,6 +201,9 @@ class UserComponent(AbstractSimulationComponent):
 
         if self._grid_load_status_received and not self._grid_load_status and self._power_output_received:
             self._car_state_sent = True
+
+        if self._total_charging_cost_received:
+            LOGGER.info(f"Total charging cost received in user component: {self._total_charging_cost}")
         
         if (self._grid_load_status_received and self._grid_load_status) and \
             (self._car_discharge_power_requirement_received and not self._power_discharge_car_to_station_message_sent):
@@ -208,14 +211,11 @@ class UserComponent(AbstractSimulationComponent):
                 self._power_discharge_car_to_station_message_sent= True
                 self._car_state_sent = True
         
-        if self._total_charging_cost_received:
-            LOGGER.info(f"Total charging cost received in user component: {self._total_charging_cost}")
-        
         if self._car_state_sent:
             await self._send_car_state_message()
             self._car_state_sent = True
         
-        if self._car_state_sent:
+        if self._car_state_sent and self._total_charging_cost_received:
             return True
     
         return False
@@ -226,15 +226,12 @@ class UserComponent(AbstractSimulationComponent):
 
     async def general_message_handler(self, message_object: Union[BaseMessage, Any], message_routing_key: str) -> None:
 
-        LOGGER.info("message handler.")
         if isinstance(message_object, PowerOutputMessage):
-            LOGGER.info("message handler.")
             message_object = cast(PowerOutputMessage, message_object)
 
-            LOGGER.info(str(message_object))
-            LOGGER.info(message_object.station_id)
-            LOGGER.info(self._station_id)
             if message_object.station_id == self._station_id and message_object.user_id == self._user_id:
+                LOGGER.info(str(message_object))
+
                 if self._latest_epoch_message is None:
                     await self.send_error_message("Got PowerOutputMessage but there is no latest epoch message")
                     return
@@ -263,14 +260,13 @@ class UserComponent(AbstractSimulationComponent):
                 LOGGER.debug(f"Ignoring PowerOutputMessage from {message_object.source_process_id}")
 
         elif isinstance(message_object, CarDischargePowerRequirementMessage):
-            LOGGER.info("message handler.")
+            
             message_object = cast(CarDischargePowerRequirementMessage, message_object)
 
-            LOGGER.info(str(message_object))
-            LOGGER.info(message_object.user_id)
-            LOGGER.info(self._user_id)
-
             if message_object.station_id == self._station_id and message_object.user_id == self._user_id:
+
+                LOGGER.info(str(message_object))
+
                 if self._latest_epoch_message is None:
                     await self.send_error_message("Got CarDischargePowerRequirementMessage but there is no latest epoch message")
                     return
@@ -310,10 +306,14 @@ class UserComponent(AbstractSimulationComponent):
         
         elif isinstance(message_object, TotalChargingCostMessage):
             message_object = cast(TotalChargingCostMessage, message_object)
-            LOGGER.info(f"Total charging cost message received: {str(message_object)}")
-            self._total_charging_cost_received = True
-            self._total_charging_cost = message_object.total_charging_cost
-            await self.start_epoch()
+            if message_object.user_id == self._user_id:
+                LOGGER.info(f"Total charging cost message received: {str(message_object)}")
+                self._total_charging_cost_received = True
+                self._total_charging_cost = message_object.total_charging_cost
+                await self.start_epoch()
+            else:
+                LOGGER.debug(f"Ignoring TotalChargingCostMessage from {message_object.source_process_id}")
+
 
         else:
             LOGGER.debug(f"Received unknown message from {message_routing_key}: {message_object}")
