@@ -215,7 +215,7 @@ class UserComponent(AbstractSimulationComponent):
             await self._send_car_state_message()
             self._car_state_sent = True
         
-        if self._car_state_sent and self._total_charging_cost_received:
+        if self._car_state_sent:
             return True
     
         return False
