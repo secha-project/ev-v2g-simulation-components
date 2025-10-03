@@ -295,6 +295,12 @@ class V2GControllerComponent(AbstractSimulationComponent):
                                     LOGGER.info(f"User {user.user_id} is willing to pay for more charging at station {station.station_id}. Increasing target SoC.")
                                     user.target_state_of_charge = MAX_STATE_OF_CHARGE # min(100.0, user.target_state_of_charge + 10.0)  # or any other logic
                                     user.required_energy = user.car_battery_capacity * (user.target_state_of_charge - user.state_of_charge) / 100
+                                else:
+                                    LOGGER.info(f"User {user.user_id} has reached maximum target SoC. No further charging.")
+                                    user.required_energy = 0.0
+                            else:
+                                LOGGER.info(f"User {user.user_id} is not willing to pay for more charging at station {station.station_id}. No further charging.")
+                                user.required_energy = 0.0
 
                     else:
                         user.required_energy = user.car_battery_capacity * (user.target_state_of_charge - user.state_of_charge) / 100
@@ -489,6 +495,8 @@ class V2GControllerComponent(AbstractSimulationComponent):
                 discharge_price_threshold = self._user_preferences[user.user_id]["DischargePriceThreshold"]
                 if discharge_price_threshold <= station.compensation_amount:
                     user.discharge = True
+                else:
+                    LOGGER.info(f"User {user.user_id} not willing to discharge at station {station.station_id} due to low compensation.")
         
         return user.discharge
 
