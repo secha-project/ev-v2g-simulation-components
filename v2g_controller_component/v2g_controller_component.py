@@ -27,6 +27,7 @@ from messages.car_state_message import CarStateMessage
 from messages.grid_state_message import GridStateMessage
 from messages.car_discharge_power_requirement_message import CarDischargePowerRequirementMessage
 from messages.grid_load_status_message import GridLoadStatusMessage
+from messages.used_power_value_to_grid_message import UsedPowerValueToGridMessage
 
 LOGGER = FullLogger(__name__)
 
@@ -52,6 +53,7 @@ POWER_OUTPUT_TOPIC = "POWER_OUTPUT_TOPIC"
 POWER_REQUIREMENT_TOPIC = "POWER_REQUIREMENT_TOPIC"
 CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC = "CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC"
 GRID_LOAD_STATUS_TOPIC = "GRID_LOAD_STATUS_TOPIC"
+USED_POWER_VALUE_TO_GRID_TOPIC = "USED_POWER_VALUE_TO_GRID_TOPIC"
 
 TIMEOUT = 1.0
 DEFAULT_MIN_STATE_OF_CHARGE = 50.0
@@ -95,12 +97,14 @@ class V2GControllerComponent(AbstractSimulationComponent):
         environment = load_environmental_variables(
             (POWER_REQUIREMENT_TOPIC, str, "V2GController.PowerRequirementTopic"),
             (CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC, str, "V2GController.CarDischargePowerRequirementTopic"),
-            (GRID_LOAD_STATUS_TOPIC, str, "V2GController.GridLoadStatus")
+            (GRID_LOAD_STATUS_TOPIC, str, "V2GController.GridLoadStatus"),
+            (USED_POWER_VALUE_TO_GRID_TOPIC, str, "V2GController.UsedPowerValueToGrid"),
         )
 
         self._power_requirement_topic = cast(str, environment[POWER_REQUIREMENT_TOPIC])
         self._car_discharge_power_requirement_topic = cast(str, environment[CAR_DISCHARGE_POWER_REQUIREMENT_TOPIC])
         self._grid_load_status_topic = cast(str, environment[GRID_LOAD_STATUS_TOPIC])
+        self._used_power_value_to_grid_topic = cast(str, environment[USED_POWER_VALUE_TO_GRID_TOPIC])   
 
         self._other_topics = [
             "Init.User.CarMetadata",
@@ -137,6 +141,8 @@ class V2GControllerComponent(AbstractSimulationComponent):
         self._stations = []
         self._send_car_discharge_power_requirement = False
         self._grid_load_status_message_sent = False
+        self._send_used_power_value_to_grid = False
+        self._user_power_value_sent_in_epoch = False
 
     async def process_epoch(self) -> bool:
         """
@@ -175,8 +181,13 @@ class V2GControllerComponent(AbstractSimulationComponent):
             and self._station_state_received and self._user_state_received
         ):
             await self._send_power_requirement_message()
+            await self._send_used_power_value_to_grid_message()
             self._power_requirement_message_sent = True
 
+        # if self._power_requirement_message_sent and not self._send_used_power_value_to_grid:
+            
+        #     self._send_used_power_value_to_grid = True
+            
         if not self._send_car_discharge_power_requirement and (
             self._grid_state_received and self._car_metadata_received
             and self._station_state_received and self._user_state_received
@@ -567,6 +578,25 @@ class V2GControllerComponent(AbstractSimulationComponent):
         except (ValueError, TypeError, MessageError) as message_error:
             log_exception(message_error)
             await self.send_error_message("Internal error when creating grid load status message.")
+    
+    async def _send_used_power_value_to_grid_message(self) -> None:
+        """Sends a used power value to grid message."""
+        try:
+            used_power_value_message = self._message_generator.get_message(
+                UsedPowerValueToGridMessage,
+                EpochNumber=self._latest_epoch,
+                TriggeringMessageIds=self._triggering_message_ids,
+                UsedPowerValue=self._used_total_power
+            )
+
+            await self._rabbitmq_client.send_message(
+                topic_name=self._used_power_value_to_grid_topic,
+                message_bytes= used_power_value_message.bytes()
+            )
+
+        except (ValueError, TypeError, MessageError) as message_error:
+            log_exception(message_error)
+            await self.send_error_message("Internal error when creating used power value to grid message.")
 
 def create_component() -> V2GControllerComponent:
     LOGGER.info("create V2G Controller component")

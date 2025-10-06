@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, cast, Union
 
+from messages.used_power_value_to_grid_message import UsedPowerValueToGridMessage
 from tools.components import AbstractSimulationComponent
 from tools.exceptions.messages import MessageError
 from tools.messages import BaseMessage
@@ -79,6 +80,7 @@ class GridComponent(AbstractSimulationComponent):
         # receive topic
         self._other_topics = [
             "PowerDischargeStationToGrid",
+            "V2GController.UsedPowerValueToGrid"
         ]
 
         # The base class contains several variables that can be used in the child class.
@@ -113,6 +115,7 @@ class GridComponent(AbstractSimulationComponent):
         """
         self._grid_state_sent = False
         self._power_discharge_station_to_grid_received = False
+        self._current_power_capacity = self._total_max_power_output
 
     async def process_epoch(self) -> bool:
         """
@@ -150,13 +153,17 @@ class GridComponent(AbstractSimulationComponent):
         if isinstance(message_object, PowerDischargeStationToGridMessage):
             message_object = cast(PowerDischargeStationToGridMessage, message_object)
             LOGGER.info(str(message_object))
-            # if message_object.station_id == self._station_id:
-            LOGGER.debug(f"Received PowerDischargeStationToGridMessage from {message_object.source_process_id}")
+            LOGGER.info(f"Received PowerDischargeStationToGridMessage from {message_object.source_process_id}")
             self._power_received = float(message_object.power)
             self._power_discharge_station_to_grid_received = True
             await self.start_epoch()
-            # else:
-            #     LOGGER.debug(f"Ignoring PowerDischargeStationToGridMessage from {message_object.source_process_id}")
+            
+        elif isinstance(message_object, UsedPowerValueToGridMessage):
+            message_object = cast(UsedPowerValueToGridMessage, message_object)
+            LOGGER.info(f"Received UsedPowerValueToGridMessage from {message_object.source_process_id}")
+            self._used_power_value = float(message_object.used_power_value)
+            self._current_power_capacity = self._used_power_value
+            self._send_used_power_value_to_grid = True
         else:
             LOGGER.debug(f"Received unknown message from {message_routing_key}: {message_object}")
 
