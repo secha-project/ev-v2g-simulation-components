@@ -5,6 +5,7 @@
 import asyncio
 from typing import Any, cast, Union
 
+from messages.user_preference_message import UserPreferenceMessage
 from tools.components import AbstractSimulationComponent
 from tools.exceptions.messages import MessageError
 from tools.messages import BaseMessage
@@ -127,6 +128,7 @@ class UserComponent(AbstractSimulationComponent):
             "Station.PowerRequirementTopic",
             "V2GController.GridLoadStatus",
             "Station.TotalChargingCost",
+            "V2GController.UserPreference",
         ]
 
         # The base class contains several variables that can be used in the child class.
@@ -313,6 +315,19 @@ class UserComponent(AbstractSimulationComponent):
                 await self.start_epoch()
             else:
                 LOGGER.debug(f"Ignoring TotalChargingCostMessage from {message_object.source_process_id}")
+        
+        elif isinstance(UserPreferenceMessage, message_object):
+            message_object = cast(UserPreferenceMessage, message_object)
+            if message_object.user_id == self._user_id:
+                LOGGER.info(f"User preference message received: {str(message_object)}")
+                self._user_preferences[message_object.user_id] = {
+                    "MinimumSOC": message_object.minimum_soc,
+                    "MaxCostForCharging": message_object.max_cost_for_charging,
+                    "DischargePriceThreshold": message_object.discharge_price_threshold,
+                    "MaximumSOC": message_object.maximum_soc
+                }
+            else:
+                LOGGER.debug(f"Ignoring UserPreferenceMessage from {message_object.source_process_id}")
 
 
         else:
