@@ -18,9 +18,13 @@ class UsedPowerValueToGridMessage(AbstractResultMessage):
     USED_POWER_VALUE_ATTRIBUTE = "UsedPowerValue"
     USED_POWER_VALUE_PROPERTY = "used_power_value"
 
+    TOTAL_POWER_VALUE_ATTRIBUTE = "TotalPowerValue"
+    TOTAL_POWER_VALUE_PROPERTY = "total_power_value"
+
     # all attributes specific that are added to the AbstractResult should be introduced here
     MESSAGE_ATTRIBUTES = {
         USED_POWER_VALUE_ATTRIBUTE: USED_POWER_VALUE_PROPERTY,
+        TOTAL_POWER_VALUE_ATTRIBUTE: TOTAL_POWER_VALUE_PROPERTY,
     }
     # list all attributes that are optional here (use the JSON attribute names)
     OPTIONAL_ATTRIBUTES = []
@@ -67,16 +71,29 @@ class UsedPowerValueToGridMessage(AbstractResultMessage):
     def used_power_value(self, used_power_value: Union[int, float]):
         self.__used_power_value = float(used_power_value)
 
+    @property
+    def total_power_value(self) -> float:
+        return self.__total_power_value
+
+    @total_power_value.setter
+    def total_power_value(self, total_power_value: Union[int, float]):
+        self.__total_power_value = float(total_power_value)
+
     def __eq__(self, other: Any) -> bool:
         return (
             super().__eq__(other) and
             isinstance(other, UsedPowerValueToGridMessage) and
-            self.used_power_value == other.used_power_value
+            self.used_power_value == other.used_power_value and
+            self.total_power_value == other.total_power_value
         )
 
     @classmethod
     def _check_used_power_value(cls, used_power_value: Union[int, float]) -> bool:
         return isinstance(used_power_value, (int, float))
+
+    @classmethod
+    def _check_total_power_value(cls, total_power_value: Union[int, float]) -> bool:
+        return isinstance(total_power_value, (int, float))
 
     @classmethod
     def from_json(cls, json_message: Dict[str, Any]) -> Optional[UsedPowerValueToGridMessage]:

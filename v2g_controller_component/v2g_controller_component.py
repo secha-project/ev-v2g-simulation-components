@@ -596,7 +596,8 @@ class V2GControllerComponent(AbstractSimulationComponent):
                 UsedPowerValueToGridMessage,
                 EpochNumber=self._latest_epoch,
                 TriggeringMessageIds=self._triggering_message_ids,
-                UsedPowerValue=self._used_total_power
+                UsedPowerValue=self._used_total_power,
+                TotalPowerValue=self._total_max_power
             )
 
             await self._rabbitmq_client.send_message(
