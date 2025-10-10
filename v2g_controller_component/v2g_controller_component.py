@@ -297,37 +297,7 @@ class V2GControllerComponent(AbstractSimulationComponent):
             for user in self._users:
                 if user.user_id == message_object.user_id:
                     user.state_of_charge = message_object.state_of_charge
-                    
-                    if self._check_user_discharge_need(user):
-                        min_soc = self._user_preferences[user.user_id]["MinimumSOC"] * 100
-                        if (user.state_of_charge != min_soc) and \
-                            (user.state_of_charge >= user.target_state_of_charge):
-                            user.required_energy = 0.0
-                            user.target_state_of_charge = max(user.state_of_charge - 10.0, min_soc)
-
-                    # If SoC == target SoC, check if user is willing to pay for more charging
-                    elif user.state_of_charge >= user.target_state_of_charge:
-                        station = next((s for s in self._stations if s.station_id == user.station_id), None)
-                        if station and user.user_id in self._user_preferences:
-                            max_cost = self._user_preferences[user.user_id]["MaxCostForCharging"]
-                            if max_cost >= station.charging_cost:
-                                # Allow further charging by increasing target SoC (e.g., up to 100%)
-                                MAX_STATE_OF_CHARGE = self._user_preferences[user.user_id].get("MaximumSOC", 1.0) * 100
-                                if user.target_state_of_charge < MAX_STATE_OF_CHARGE:
-                                    LOGGER.info(f"User {user.user_id} is willing to pay for more charging at station {station.station_id}. Increasing target SoC.")
-                                    user.target_state_of_charge = MAX_STATE_OF_CHARGE # min(100.0, user.target_state_of_charge + 10.0)  # or any other logic
-                                    user.required_energy = user.car_battery_capacity * (user.target_state_of_charge - user.state_of_charge) / 100
-                                else:
-                                    LOGGER.info(f"User {user.user_id} has reached maximum target SoC. No further charging.")
-                                    user.required_energy = 0.0
-                            else:
-                                LOGGER.info(f"User {user.user_id} is not willing to pay for more charging at station {station.station_id}. No further charging.")
-                                user.required_energy = 0.0
-
-                    else:
-                        user.required_energy = user.car_battery_capacity * (user.target_state_of_charge - user.state_of_charge) / 100
-                    
-                    LOGGER.info(str(user))
+                    LOGGER.info("Updated user state of charge: " + str(user))
                     break
 
             LOGGER.info(f"car_state_received: {self._car_state_received}")
@@ -351,6 +321,37 @@ class V2GControllerComponent(AbstractSimulationComponent):
         else:
             LOGGER.debug(f"Received unknown message from {message_routing_key}: {message_object}")
 
+    def _set_car_charging_requirements(self, user : UserData):
+
+        # if self._check_user_discharge_need(user):
+        #     min_soc = self._user_preferences[user.user_id]["MinimumSOC"] * 100
+        #     if (user.state_of_charge != min_soc) and \
+        #         (user.state_of_charge >= user.target_state_of_charge):
+        #         user.required_energy = 0.0
+        #         user.target_state_of_charge = max(user.state_of_charge - 10.0, min_soc)
+
+        # If SoC == target SoC, check if user is willing to pay for more charging
+        if user.state_of_charge >= user.target_state_of_charge:
+            station = next((s for s in self._stations if s.station_id == user.station_id), None)
+            if station and user.user_id in self._user_preferences:
+                max_cost = self._user_preferences[user.user_id]["MaxCostForCharging"]
+                if max_cost >= station.charging_cost:
+                    # Allow further charging by increasing target SoC (e.g., up to 100%)
+                    MAX_STATE_OF_CHARGE = self._user_preferences[user.user_id].get("MaximumSOC", 1.0) * 100
+                    if user.target_state_of_charge < MAX_STATE_OF_CHARGE:
+                        LOGGER.info(f"User {user.user_id} is willing to pay for more charging at station {station.station_id}. Increasing target SoC.")
+                        user.target_state_of_charge = MAX_STATE_OF_CHARGE # min(100.0, user.target_state_of_charge + 10.0)  # or any other logic
+                        user.required_energy = user.car_battery_capacity * (user.target_state_of_charge - user.state_of_charge) / 100
+                    else:
+                        LOGGER.info(f"User {user.user_id} has reached maximum target SoC. No further charging.")
+                        user.required_energy = 0.0
+                else:
+                    LOGGER.info(f"User {user.user_id} is not willing to pay for more charging at station {station.station_id}. No further charging.")
+                    user.required_energy = 0.0
+
+        else:
+            user.required_energy = user.car_battery_capacity * (user.target_state_of_charge - user.state_of_charge) / 100
+        
     async def _send_power_requirement_message(self):
         LOGGER.info("power requirement message initiated")
         
@@ -364,6 +365,9 @@ class V2GControllerComponent(AbstractSimulationComponent):
         connected_users: List[UserData] = []
 
         for user in self._users:
+
+            LOGGER.info("Setting car charging requirements for user: " + str(user))
+            self._set_car_charging_requirements(user)
 
             LOGGER.info(f"EPOCH START TIME: {start_time}")
             LOGGER.info(f"EPOCH END TIME: {end_time}")
